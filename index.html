@@ -100,11 +100,79 @@ const C={cat:'fusa_catalogo',ped:'fusa_pedidos_locales',lc:'fusa_listas_compra',
 const LOCALES={orange:'Orange',west_orange:'West Orange'};
 const CATEGORIAS={cocina:'Cocina',cafeteria:'Cafetería',bebidas:'Bebidas',panaderia:'Panadería',limpieza:'Limpieza'};
 const SUBS={mercado:'Mercado (se compra)',bodega:'Bodega (se despacha)',facility:'Facility (se produce)'};
-const AREAS={cocina:'Cocina',cuarto_frio:'Cuarto frío',panaderia:'Panadería'};
+const AREAS={panaderia:'Panadería producción',proteinas:'Proteínas',produce:'Produce'};
+const AREA0='panaderia';
+const SEED=[
+  ["proteinas", "Presas de pollo", "Bolsa", "20 unidades"],
+  ["proteinas", "Filete de pechuga", "Unidades", "200 gr x filete"],
+  ["proteinas", "Pechuga de pollo cubos", "Bolsa", "130 gr"],
+  ["proteinas", "Carne de res entera", "Kg", "130 gr"],
+  ["proteinas", "Carne de res cubos", "Bolsa", "2 kg"],
+  ["proteinas", "Filete de res", "Unidades", "130gr x filete"],
+  ["proteinas", "Chuleta de cerdo (JS Cheese)", "Caja", "24 filetes"],
+  ["proteinas", "Filete de lomo de cerdo", "Unidades", "130g x filete"],
+  ["proteinas", "Camarón (Santa Priscila)", "Bolsa", "1 kg"],
+  ["proteinas", "Guatita", "Bolsa", "1kg"],
+  ["proteinas", "Queso molido", "Bolsa", "1 kg"],
+  ["proteinas", "Carne molida", "Bolsa", "4 kg"],
+  ["produce", "Tomate romano", "Bolsa", "2 kg"],
+  ["produce", "Tomate cherry", "Caja", "270 gr"],
+  ["produce", "Pimiento rojo", "Bolsa", "2 kg"],
+  ["produce", "Pimiento verde", "Bolsa", "2 kg"],
+  ["produce", "Ajo en pepa", "Bolsa", "1 kg"],
+  ["produce", "Perejil", "Bolsa", "400 gr"],
+  ["produce", "Cilantro", "Bolsa", "400 gr"],
+  ["produce", "Cúrcuma", "Caja", "528 gr"],
+  ["produce", "Manzana roja", "Bolsa", "12 unidades"],
+  ["produce", "Manzana verde", "Bolsa", "12 unidades"],
+  ["produce", "Melón picado", "Bolsa", "2 kg"],
+  ["produce", "Banana congelada", "Bolsa", "2 kg"],
+  ["produce", "Lechuga", "Bolsa", "6 unidades"],
+  ["produce", "Limón", "Bolsa", "2 kg"],
+  ["produce", "Morocho cocinado", "Bolsa", "500 gr"],
+  ["produce", "Morocho cocinado 1/2 orden", "Bolsa", "250 gr"],
+  ["produce", "Frozen peas (arvejas congeladas)", "Bolsa", "1.13 kg"],
+  ["produce", "Pollo entero", "Unidades", "1.7 kg"],
+  ["produce", "Naranja", "Caja", "88 unidades"],
+  ["produce", "Plátano verde", "Bolsa", "12 unidades"],
+  ["produce", "Harina blanca", "Bolsa", "1.36 kg"],
+  ["produce", "Base trigrillo", "Bolsa", "1 kg"],
+  ["produce", "Tomate de arbol picado", "Bolsa", "1.3 kg"],
+  ["produce", "Bolón", "Unidades", "25 unidades"],
+  ["produce", "Empanada de verde", "Unidades", "20 unidades"],
+  ["produce", "Tortilla de yuca", "Unidades", "20 unidades"],
+  ["panaderia", "Cachos con queso", "Unidades", ""],
+  ["panaderia", "Jamón con queso", "Unidades", ""],
+  ["panaderia", "Empanada chola", "Unidades", ""],
+  ["panaderia", "Empanada integral", "Unidades", ""],
+  ["panaderia", "Integral sin queso", "Unidades", ""],
+  ["panaderia", "Pan de tiesto", "Unidades", ""],
+  ["panaderia", "Cachito", "Unidades", ""],
+  ["panaderia", "Empanada de viento", "Unidades", ""],
+  ["panaderia", "Empanada de carne", "Unidades", ""],
+  ["panaderia", "Empanada de pollo", "Unidades", ""],
+  ["panaderia", "Pan de bono", "Unidades", ""],
+  ["panaderia", "Base arepa", "Unidades", ""],
+  ["panaderia", "Pan de leche", "Unidades", ""],
+  ["panaderia", "Ciabatta", "Unidades", ""],
+  ["panaderia", "Miniempanada de carne", "Unidades", ""],
+  ["panaderia", "Miniempanada de pollo", "Unidades", ""],
+  ["panaderia", "Empanada blanca", "Unidades", ""],
+  ["panaderia", "Pan de guayaba", "Unidades", ""],
+  ["panaderia", "Enquesillado", "Unidades", ""],
+  ["panaderia", "Palanquetas", "Unidades", ""],
+  ["panaderia", "Pan de ajonjolí", "Unidades", ""],
+  ["panaderia", "Guaguas de pan", "Unidades", ""],
+  ["panaderia", "Tiramisú", "Unidades", "5 unidades"],
+  ["panaderia", "Tres leches", "Unidades", "5 unidades"],
+  ["panaderia", "Cheesecake de frutos rojos", "Unidades", "5 unidades"],
+  ["panaderia", "Cheesecake de maracuyá", "Unidades", "5 unidades"]
+];
+
 const TITULOS={pedidos:'Pedidos de locales',compras:'Lista de compras',interna:'Lista interna de producción',produccion:'Registro de producción',guias:'Guías de despacho',catalogo:'Catálogo de productos'};
 
 const S={cat:[],ped:[],lc:[],lp:[],prod:[],guias:[]};
-let view='pedidos',modo='lista',cart={},localSel=localStorage.getItem('fusa_local')||'',area='cocina',quien=localStorage.getItem('fusa_quien')||'';
+let view='pedidos',modo='lista',cart={},localSel=localStorage.getItem('fusa_local')||'',area=AREA0,quien=localStorage.getItem('fusa_quien')||'';
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const num=v=>Math.round(parseFloat(String(v).replace(',','.'))*100)/100;
@@ -145,8 +213,19 @@ function vCatalogo(){
    <div class="f"><label>Subcategoría</label><select id="c_s" onchange="document.getElementById('c_ar').style.display=this.value==='facility'?'':'none'">${Object.entries(SUBS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div>
    <div class="f" id="c_ar" style="display:none"><label>Se produce en</label><select id="c_a">${Object.entries(AREAS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div>
    <button class="btn p" onclick="addProd()">Agregar</button></div></div>
+   ${faltanSeed()?`<div class="box" style="border-color:var(--ac)"><h3>Productos iniciales de Facility USA</h3><div class="mu" style="margin-bottom:10px">${SEED.length} productos (Panadería producción, Proteínas y Produce). Se cargan una sola vez; si ya existen no se duplican.</div><button class="btn p" onclick="cargarSeed()">Cargar ${faltanSeed()} productos</button></div>`:''}
    <div class="box">${S.cat.length?`<table><tr><th>Producto</th><th>Categoría</th><th>Subcategoría</th><th>Unidad</th><th></th></tr>${rows}</table>`:'<div class="empty">El catálogo está vacío. Agrega los productos uno por uno.</div>'}</div>`;
 }
+const seedId=n=>'seed_'+n.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
+function faltanSeed(){const ex=new Set(S.cat.map(p=>p.id));return SEED.filter(s=>!ex.has(seedId(s[1]))).length}
+window.cargarSeed=()=>{
+  const ex=new Set(S.cat.map(p=>p.id)),b=writeBatch(db);let n=0;
+  SEED.forEach(([area,nombre,uni,pres])=>{
+    const id=seedId(nombre);if(ex.has(id))return;
+    b.set(doc(db,C.cat,id),{nombre,unidad_medida:pres?uni+' · '+pres:uni,unidad_base:uni,presentacion:pres,categoria:area==='panaderia'?'panaderia':'cocina',subcategoria:'facility',area_produccion:area,activo:true});n++;
+  });
+  if(!n)return;b.commit();buzz();toast(n+' productos cargados');
+};
 window.addProd=()=>{
   const nombre=$('c_n').value.trim(),unidad=$('c_u').value.trim();
   if(!nombre||!unidad){toast('Falta nombre o unidad');return}
@@ -232,10 +311,10 @@ window.cerrarCompra=id=>updateDoc(doc(db,C.lc,id),{estado:'cerrada'});
 /* ============ LISTA INTERNA DE PRODUCCIÓN (subcategoría facility) ============ */
 function vInterna(){
   const g=agrupar('facility');
-  const porArea=a=>g.items.filter(i=>(i.area_produccion||'cocina')===a);
+  const porArea=a=>g.items.filter(i=>(i.area_produccion||AREA0)===a);
   const nueva=`<div class="box"><h3>Pendiente por producir</h3>${g.items.length?Object.entries(AREAS).map(([k,v])=>porArea(k).length?`<h4 style="margin:10px 0 4px">${v}</h4><table>${porArea(k).map(i=>`<tr><td>${esc(i.producto_nombre)}</td><td>${esc(i.cantidad)} ${esc(i.unidad_medida)}</td></tr>`).join('')}</table>`:'').join('')+`<div class="row" style="margin-top:12px"><button class="btn p" onclick="genInterna()">Generar lista interna (${g.pend.length} pedidos)</button></div>`:'<div class="empty">No hay productos para producir.</div>'}</div>`;
   const listas=S.lp.map(l=>`<div class="box"><div class="row" style="justify-content:space-between;margin:0 0 8px"><div><b>Lista ${fecha(l.fecha_ms)}</b> <span class="badge b-${l.estado==='cerrada'?'procesado':'en_proceso'}">${esc(l.estado)}</span></div>${l.estado!=='cerrada'?`<button class="btn sm g" onclick="cerrarInterna('${l.id}')">Cerrar lista</button>`:''}</div>
-   ${Object.entries(AREAS).map(([k,v])=>{const its=(l.items||[]).map((i,ix)=>({...i,ix})).filter(i=>(i.area_produccion||'cocina')===k);return its.length?`<h4 style="margin:10px 0 4px">${v}</h4><table>${its.map(i=>`<tr><td><input type="checkbox" style="width:26px;height:26px;min-height:0" ${i.hecho?'checked':''} onchange="toggleInterna('${l.id}',${i.ix},this.checked)"></td><td class="${i.hecho?'done':''}">${esc(i.producto_nombre)}</td><td>${esc(i.cantidad)} ${esc(i.unidad_medida)}</td></tr>`).join('')}</table>`:''}).join('')}</div>`).join('');
+   ${Object.entries(AREAS).map(([k,v])=>{const its=(l.items||[]).map((i,ix)=>({...i,ix})).filter(i=>(i.area_produccion||AREA0)===k);return its.length?`<h4 style="margin:10px 0 4px">${v}</h4><table>${its.map(i=>`<tr><td><input type="checkbox" style="width:26px;height:26px;min-height:0" ${i.hecho?'checked':''} onchange="toggleInterna('${l.id}',${i.ix},this.checked)"></td><td class="${i.hecho?'done':''}">${esc(i.producto_nombre)}</td><td>${esc(i.cantidad)} ${esc(i.unidad_medida)}</td></tr>`).join('')}</table>`:''}).join('')}</div>`).join('');
   return nueva+listas;
 }
 window.genInterna=()=>{
@@ -251,7 +330,7 @@ window.cerrarInterna=id=>updateDoc(doc(db,C.lp,id),{estado:'cerrada'});
 /* ============ REGISTRO DE PRODUCCIÓN (Cocina / Cuarto frío / Panadería) ============ */
 function vProduccion(){
   const tabs=Object.entries(AREAS).map(([k,v])=>`<button class="btn ${k===area?'p':''}" onclick="setArea('${k}')">${v}</button>`).join('');
-  const prods=S.cat.filter(p=>p.subcategoria==='facility'&&(p.area_produccion||'cocina')===area);
+  const prods=S.cat.filter(p=>p.subcategoria==='facility'&&(p.area_produccion||AREA0)===area);
   const cards=prods.map(p=>`<div class="card" onclick="regProd('${p.id}')">${thumb(p)}<div class="n">${esc(p.nombre)}</div><div class="u">${esc(p.unidad_medida)}</div></div>`).join('');
   const hoy=new Date().toDateString();
   const rec=S.prod.filter(r=>r.area===area&&new Date(r.fecha_ms).toDateString()===hoy).map(r=>`<tr><td>${esc(r.producto_nombre)}</td><td>${esc(r.cantidad)} ${esc(r.unidad_medida)}</td><td class="mu">${esc(r.por||'')}</td><td class="mu">${new Date(r.fecha_ms).toLocaleTimeString('es-US',{hour:'2-digit',minute:'2-digit'})}</td></tr>`).join('');
