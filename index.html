@@ -806,6 +806,7 @@ function renderFichaEdit(){
   const dm = m => p.vida[m] > 0 ? p.vida[m] + ' días' : 'No aplica';
   return '<div class="subbar"><button class="btn" data-act="ficha-cancel">Cancelar</button><div class="subt">' + esc(p.nombre) + '</div><button class="btn okb" data-act="ficha-save">Guardar</button></div><div class="screen">' +
     '<div class="sec"><h3>Foto</h3><div class="fotorow">' + phHTML(p, 'big') + '<div class="col"><label class="btn pri" for="pr-ficha-foto">' + ic('camera', 24) + ' Tomar o elegir foto</label><input id="pr-ficha-foto" type="file" accept="image/*" style="position:absolute;opacity:0;width:1px;height:1px">' + (foto ? '<button class="btn" data-act="foto-del">Quitar foto</button>' : '') + '</div></div></div>' +
+    '<div class="sec"><h3>Unidad de registro</h3><div class="mu small">Elige libras o kilos para registrar este producto con la balanza.</div><div class="modos">' + [['orig', ((PROD_ALL.filter(x => x.id === p.id)[0] || {}).uni || 'Original')], ['lb', 'Libras (lb)'], ['kg', 'Kilos (kg)']].map(u => '<button class="btn ' + ((u[0] === 'orig' ? !wUni(p.unidad) : wUni(p.unidad) === u[0]) ? 'on' : '') + '" data-act="funi" data-v="' + u[0] + '">' + esc(u[1]) + '</button>').join('') + '</div></div>' +
     '<div class="sec"><h3>Cantidades (' + esc(p.unidad) + ')</h3>' +
       row('Batch estándar', 'batch', fmt(p.batch), p.unidad) + row('Avisar si pasa de', 'max', p.max > 0 ? fmt(p.max) : '3 batches', p.max > 0 ? p.unidad : '') +
       row('Unidades por paquete (1 etiqueta por paquete)', 'por_etiqueta', p.por_etiqueta > 0 ? fmt(p.por_etiqueta) : 'Sin paquete: 1 etiqueta', p.por_etiqueta > 0 ? p.unidad : '') +
@@ -959,6 +960,7 @@ function onClick(e){
     case 'ficha-cancel': S.fd = null; S.screen = 'fichas'; render(); break;
     case 'ficha-save': guardarFicha(); break;
     case 'foto-del': S.fd.draft.foto = null; render(); break;
+    case 'funi': { const dr = S.fd.draft; dr.unidad = d.v === 'orig' ? (PROD_ALL.filter(x => x.id === dr.id)[0] || {}).uni || dr.unidad : d.v; if(wUni(dr.unidad)) dr.decimales = 1; render(); break; }
     case 'ftog': { const dr = S.fd.draft; dr[d.f] = dr[d.f] ? 0 : 1; render(); break; }
     case 'fdef': S.fd.draft.modo_defecto = d.v; render(); break;
     case 'fnum': {
