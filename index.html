@@ -1006,14 +1006,19 @@ import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase
 import {initializeFirestore,persistentLocalCache,collection,doc,setDoc,updateDoc,deleteDoc,onSnapshot,query,orderBy,serverTimestamp,writeBatch,increment,getDocs} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 /* ====== 1) PEGA AQUÍ LA CONFIGURACIÓN DEL FIREBASE DE BAJAS USA ====== */
-const firebaseConfig={
-  apiKey:"PEGAR_AQUI",
-  authDomain:"PEGAR_AQUI",
-  projectId:"PEGAR_AQUI",
-  storageBucket:"PEGAR_AQUI",
-  messagingSenderId:"PEGAR_AQUI",
-  appId:"PEGAR_AQUI"
+const FBBASE={
+  apiKey:"AIzaSyArLG-zkdFHIXMmE8G9ykiq8yL9MVqfaLU",
+  authDomain:"morochos-829bb.firebaseapp.com",
+  projectId:"morochos-829bb",
+  storageBucket:"morochos-829bb.firebasestorage.app",
+  messagingSenderId:"754992298094",
+  appId:"1:754992298094:web:6600beb9de618073450e7f"
 };
+let FBLS=null;try{FBLS=JSON.parse(localStorage.getItem('fusa_fbcfg')||'null')}catch(e){}
+const firebaseConfig=(FBBASE.apiKey==='PEGAR_AQUI'&&FBLS&&FBLS.apiKey)?FBLS:FBBASE;
+const FB_FALTA=firebaseConfig.apiKey==='PEGAR_AQUI';
+window.fbPegar=()=>{const t=prompt('Pega aquí la configuración de Firebase (el bloque que empieza con apiKey: ... o { ... })');if(!t)return;const o={};t.replace(/["']?(apiKey|authDomain|projectId|storageBucket|messagingSenderId|appId)["']?\s*:\s*["']([^"']+)["']/g,(m,k,v)=>{o[k]=v;return m});if(!o.apiKey||!o.projectId){alert('No encontré apiKey y projectId en lo que pegaste.');return}try{localStorage.setItem('fusa_fbcfg',JSON.stringify(o))}catch(e){}location.reload()};
+if(FB_FALTA){document.addEventListener('DOMContentLoaded',()=>{const d=document.createElement('div');d.style.cssText='position:fixed;left:0;right:0;top:0;z-index:200;background:#c5221f;color:#fff;padding:10px 14px;font:600 14px Poppins,sans-serif;display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;text-align:center';d.innerHTML='<span>Falta conectar Firebase: los productos y registros NO se guardan en la nube ni se ven en otros dispositivos.</span><button onclick="fbPegar()" style="font:inherit;border:0;border-radius:10px;padding:6px 12px;background:#fff;color:#c5221f;cursor:pointer">Pegar configuración</button>';document.body.appendChild(d)})}
 /* ================================================================= */
 
 let ready=false;
@@ -1100,8 +1105,8 @@ const TITULOS={inicio:'Inicio',pedidos:'Pedidos de locales',compras:'Lista de co
 var prIni=false,seeded=false;
 const S={cat:[],ped:[],lc:[],lp:[],prod:[],guias:[],pruebas:[],fichas:{},inv:{},mp:{},cfg:{},equipo:{},avisos:{},orden:{}};
 window.menu=o=>document.body.classList.toggle('mopen',!!o);
-function fbErr(e){console.error(e);if(e&&e.code==='permission-denied')toast('Firebase no deja guardar ni leer: publica las reglas de Firestore (fusa_)')}
-window.addEventListener('unhandledrejection',ev=>{const r=ev.reason;if(r&&r.code==='permission-denied'){ev.preventDefault();fbErr(r)}});
+function fbErr(e){console.error(e);if(!e)return;if(e.code==='permission-denied')toast('Firebase no deja guardar ni leer: publica las reglas de Firestore (fusa_)');else if(e.code&&e.code!=='unavailable'&&e.code!=='cancelled')toast('Firebase: '+e.code)}
+window.addEventListener('unhandledrejection',ev=>{const r=ev.reason;if(r&&r.code&&/^(permission-denied|invalid-argument|unauthenticated|failed-precondition)$/.test(r.code)){ev.preventDefault();fbErr(r)}});
 window.enConstruccion=()=>toast('En construcción');
 const LOCKED=['pedidos','compras','interna','guias','catalogo'];
 let view='inicio',modo='lista',cart={},localSel=localStorage.getItem('fusa_local')||'',quien=localStorage.getItem('fusa_quien')||'';
@@ -1122,7 +1127,7 @@ function toast(msg,undo){$('tmsg').textContent=msg;const t=$('toast');t.style.di
 
 /* ---------- Escuchas en vivo ---------- */
 function listen(key,col,order){onSnapshot(query(collection(db,col),orderBy(order,'desc')),s=>{S[key]=s.docs.map(d=>({id:d.id,...d.data()}));prSyncKey(key);softRender()},fbErr)}
-onSnapshot(collection(db,C.cat),s=>{S.cat=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.nombre.localeCompare(b.nombre));prSyncKey('cat');softRender();if(!seeded&&!s.docs.length){seeded=true;let ya=false;try{ya=localStorage.getItem('fusa_seed_ok')}catch(e){}if(!ya)getDocs(collection(db,C.cat)).then(r=>{if(!r.docs.length&&!(r.metadata&&r.metadata.fromCache)&&!S.cat.length&&window.cargarSeed){cargarSeed();try{localStorage.setItem('fusa_seed_ok','1')}catch(e){}}}).catch(fbErr)}},fbErr);
+onSnapshot(collection(db,C.cat),s=>{S.cat=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.nombre.localeCompare(b.nombre));prSyncKey('cat');softRender();if(!seeded&&!s.docs.length&&!FB_FALTA){seeded=true;let ya=false;try{ya=localStorage.getItem('fusa_seed_ok')}catch(e){}if(!ya)getDocs(collection(db,C.cat)).then(r=>{if(!r.docs.length&&!(r.metadata&&r.metadata.fromCache)&&!S.cat.length&&window.cargarSeed){cargarSeed();try{localStorage.setItem('fusa_seed_ok','1')}catch(e){}}}).catch(fbErr)}},fbErr);
 listen('ped',C.ped,'fecha_envio');listen('lc',C.lc,'fecha_ms');listen('lp',C.lp,'fecha_ms');listen('prod',C.prod,'fecha_ms');listen('guias',C.guias,'fecha_ms');listen('pruebas',C.pruebas,'fecha_ms');
 function listenMap(key,col){onSnapshot(collection(db,col),s=>{const o={};s.docs.forEach(d=>o[d.id]=d.data());S[key]=o;prSyncKey(key);softRender()},fbErr)}
 listenMap('fichas',C.fichas);listenMap('inv',C.inv);listenMap('mp',C.mp);listenMap('cfg',C.cfg);listenMap('equipo',C.equipo);listenMap('avisos',C.avisos);listenMap('orden',C.orden);
