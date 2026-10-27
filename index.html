@@ -1003,7 +1003,7 @@ window.PRODREG = {
 </script>
 <script type="module">
 import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {initializeFirestore,persistentLocalCache,collection,doc,setDoc,updateDoc,deleteDoc,onSnapshot,query,orderBy,serverTimestamp,writeBatch,increment,getDocs} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {initializeFirestore,persistentLocalCache,collection,doc,setDoc,updateDoc,deleteDoc,onSnapshot,query,orderBy,serverTimestamp,writeBatch,increment,getDocs,getDocsFromServer} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 /* ====== 1) PEGA AQUÍ LA CONFIGURACIÓN DEL FIREBASE DE BAJAS USA ====== */
 const FBBASE={
@@ -1370,6 +1370,14 @@ function balModal(){const op=(v,t,cur)=>`<option value="${v}" ${String(cur)===St
   <div class="mu" style="margin-bottom:10px">Funciona con balanzas USB (puerto serial) en Chrome para computador o Android. En Produce aparece el botón "Usar peso de la balanza" al elegir un producto en libras, kilos, gramos u onzas.</div>
   <div class="row">${bal.on?'<button class="btn d" onclick="balDesconectar()">Desconectar</button>':'<button class="btn g" onclick="balConectar()">Conectar por USB</button>'}<button class="btn" onclick="cerrarM()">Cerrar</button></div>`;
   $('modal').style.display='flex'}
+window.diagnostico=async()=>{
+  const m=t=>{$('mbody').innerHTML=t;$('modal').style.display='flex'};
+  m('<div style="font-weight:800;font-size:18px;text-align:center">Diagnóstico de conexión</div><div class="mu" style="text-align:center;margin:14px 0">Revisando… (hasta 10 segundos)</div>');
+  const L=[['Proyecto Firebase',firebaseConfig.projectId,true],['Productos en esta pantalla',String(S.cat.length),true]];
+  try{const r=await Promise.race([getDocsFromServer(collection(db,C.cat)),new Promise((_,j)=>setTimeout(()=>j({code:'sin respuesta (sin internet o bloqueado)'}),10000))]);L.push(['Leer de la nube',r.size+' productos en la nube',true])}catch(e){L.push(['Leer de la nube','ERROR: '+(e.code||e.message),false])}
+  try{await Promise.race([setDoc(doc(db,C.cfg,'diagnostico'),{ms:Date.now()}),new Promise((_,j)=>setTimeout(()=>j({code:'sin respuesta en 10 s (sin internet o bloqueado)'}),10000))]);L.push(['Guardar en la nube','OK',true])}catch(e){L.push(['Guardar en la nube','ERROR: '+(e.code||e.message),false])}
+  m('<div style="font-weight:800;font-size:18px;text-align:center;margin-bottom:10px">Diagnóstico de conexión</div>'+L.map(x=>`<div style="display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--bd)"><span>${esc(x[0])}</span><b style="color:${x[2]?'var(--ok)':'var(--er)'};text-align:right">${esc(x[1])}</b></div>`).join('')+'<div class="mu" style="margin:10px 0">Si dice permission-denied, hay que publicar las reglas de Firestore. Si dice 0 productos en la nube, toca Cargar productos.</div><div class="row"><button class="btn g" onclick="cargarSeed();cerrarM()">Cargar productos iniciales</button><button class="btn" onclick="cerrarM()">Cerrar</button></div>');
+};
 const prApi={
   guardarRegistro:prGuardar,actualizarRegistro:prActualizar,
   guardarPrueba:r=>setDoc(doc(db,C.pruebas,r.id),{...prDoc(r),insumos:[],bajas:[]}),
@@ -1379,8 +1387,8 @@ const prApi={
   pedirCodigo:cb=>pedirAdmin(cb),
   balanza:{leer:()=>bal.on?{peso:bal.peso,unidad:bal.unidad,estable:bal.estable}:null},
   quien:()=>quien,setQuien:v=>{setQuien(v)},equipo:()=>eqList().map(e=>e.nombre).filter(Boolean),
-  menuExtra:()=>[{k:'nuevo',t:'+ Producto nuevo'},{k:'recetas',t:'Recetas, insumos y metas'},{k:'mp',t:'Materias primas'},{k:'equipo',t:'Equipo y teléfonos'},{k:'bal',t:'Balanza'},...(faltanSeed()?[{k:'seed',t:'Cargar productos iniciales ('+faltanSeed()+')'}]:[]),{k:'zona',t:'Pruebas y borrado'}],
-  onMenu:k=>{if(k==='bal')balModal();else if(k==='seed')cargarSeed();else if(k==='zona')prZonaMenu();else if(k==='recetas')pedirAdmin(()=>prMode('fichas'));else prMode(k)}
+  menuExtra:()=>[{k:'nuevo',t:'+ Producto nuevo'},{k:'recetas',t:'Recetas, insumos y metas'},{k:'mp',t:'Materias primas'},{k:'equipo',t:'Equipo y teléfonos'},{k:'bal',t:'Balanza'},{k:'diag',t:'Diagnóstico de conexión'},...(faltanSeed()?[{k:'seed',t:'Cargar productos iniciales ('+faltanSeed()+')'}]:[]),{k:'zona',t:'Pruebas y borrado'}],
+  onMenu:k=>{if(k==='diag')diagnostico();else if(k==='bal')balModal();else if(k==='seed')cargarSeed();else if(k==='zona')prZonaMenu();else if(k==='recetas')pedirAdmin(()=>prMode('fichas'));else prMode(k)}
 };
 function prIniciar(){PRODREG.init({productos:prProductos(),codigo:0,bloqueadas:[],api:prApi});prIni=true;PRODREG.setFichas(S.fichas);prSyncOrden();prSyncRegs()}
 
