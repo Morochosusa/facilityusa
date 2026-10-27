@@ -1090,6 +1090,8 @@ const TITULOS={inicio:'Inicio',pedidos:'Pedidos de locales',compras:'Lista de co
 var prIni=false,seeded=false;
 const S={cat:[],ped:[],lc:[],lp:[],prod:[],guias:[],pruebas:[],fichas:{},inv:{},mp:{},cfg:{},equipo:{},avisos:{},orden:{}};
 window.menu=o=>document.body.classList.toggle('mopen',!!o);
+function fbErr(e){console.error(e);if(e&&e.code==='permission-denied')toast('Firebase no deja guardar ni leer: publica las reglas de Firestore (fusa_)')}
+window.addEventListener('unhandledrejection',ev=>{const r=ev.reason;if(r&&r.code==='permission-denied'){ev.preventDefault();fbErr(r)}});
 window.enConstruccion=()=>toast('En construcción');
 const LOCKED=['pedidos','compras','interna','guias','catalogo'];
 let view='inicio',modo='lista',cart={},localSel=localStorage.getItem('fusa_local')||'',quien=localStorage.getItem('fusa_quien')||'';
@@ -1109,10 +1111,10 @@ function destello(){const f=$('flash');f.textContent='✓ Guardado';f.classList.
 function toast(msg,undo){$('tmsg').textContent=msg;const t=$('toast');t.style.display='flex';$('tund').style.display=undo?'':'none';$('tund').onclick=()=>{undo&&undo();t.style.display='none';clearTimeout(tT)};clearTimeout(tT);tT=setTimeout(()=>t.style.display='none',10000)}
 
 /* ---------- Escuchas en vivo ---------- */
-function listen(key,col,order){onSnapshot(query(collection(db,col),orderBy(order,'desc')),s=>{S[key]=s.docs.map(d=>({id:d.id,...d.data()}));prSyncKey(key);softRender()},e=>console.error(col,e))}
-onSnapshot(collection(db,C.cat),s=>{S.cat=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.nombre.localeCompare(b.nombre));prSyncKey('cat');softRender();if(!seeded&&!s.docs.length){seeded=true;let ya=false;try{ya=localStorage.getItem('fusa_seed_ok')}catch(e){}if(!ya)setTimeout(()=>{if(!S.cat.length&&window.cargarSeed){cargarSeed();try{localStorage.setItem('fusa_seed_ok','1')}catch(e){}}},1500)}},e=>console.error(e));
+function listen(key,col,order){onSnapshot(query(collection(db,col),orderBy(order,'desc')),s=>{S[key]=s.docs.map(d=>({id:d.id,...d.data()}));prSyncKey(key);softRender()},fbErr)}
+onSnapshot(collection(db,C.cat),s=>{S.cat=s.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>a.nombre.localeCompare(b.nombre));prSyncKey('cat');softRender();if(!seeded&&!s.docs.length){seeded=true;let ya=false;try{ya=localStorage.getItem('fusa_seed_ok')}catch(e){}if(!ya)getDocs(collection(db,C.cat)).then(r=>{if(!r.docs.length&&!(r.metadata&&r.metadata.fromCache)&&!S.cat.length&&window.cargarSeed){cargarSeed();try{localStorage.setItem('fusa_seed_ok','1')}catch(e){}}}).catch(fbErr)}},fbErr);
 listen('ped',C.ped,'fecha_envio');listen('lc',C.lc,'fecha_ms');listen('lp',C.lp,'fecha_ms');listen('prod',C.prod,'fecha_ms');listen('guias',C.guias,'fecha_ms');listen('pruebas',C.pruebas,'fecha_ms');
-function listenMap(key,col){onSnapshot(collection(db,col),s=>{const o={};s.docs.forEach(d=>o[d.id]=d.data());S[key]=o;prSyncKey(key);softRender()},e=>console.error(col,e))}
+function listenMap(key,col){onSnapshot(collection(db,col),s=>{const o={};s.docs.forEach(d=>o[d.id]=d.data());S[key]=o;prSyncKey(key);softRender()},fbErr)}
 listenMap('fichas',C.fichas);listenMap('inv',C.inv);listenMap('mp',C.mp);listenMap('cfg',C.cfg);listenMap('equipo',C.equipo);listenMap('avisos',C.avisos);listenMap('orden',C.orden);
 function netChip(){const on=navigator.onLine;const n=$('net');n.textContent=on?'Con internet':'Sin internet · se guarda en la tablet';n.className='chip '+(on?'ok':'off')}
 window.addEventListener('online',netChip);window.addEventListener('offline',netChip);netChip();
@@ -1157,7 +1159,7 @@ window.cargarSeed=()=>{
     const id=seedId(nombre);if(ex.has(id))return;
     b.set(doc(db,C.cat,id),{nombre,unidad_medida:pres?uni+' · '+pres:uni,unidad_base:uni,presentacion:pres,categoria:area==='panaderia'?'panaderia':'cocina',subcategoria:'facility',area_produccion:area,activo:true});n++;
   });
-  if(!n)return;b.commit();buzz();toast(n+' productos cargados');
+  if(!n)return;b.commit().catch(fbErr);buzz();toast(n+' productos cargados');
 };
 window.addProd=()=>{
   const nombre=$('c_n').value.trim(),unidad=$('c_u').value.trim();
@@ -1381,6 +1383,7 @@ window.pinK=k=>{buzz();if(k==='⌫')pinBuf=pinBuf.slice(0,-1);else if(pinBuf.len
   pinDibujar(pinTitulo,pinSub);
   if(pinBuf.length===4){const cb=pinCb,p=pinBuf;pinCb=null;pinBuf='';$('modal').style.display='none';setTimeout(()=>cb&&cb(p),0)}};
 window.pinNo=()=>{pinCb=null;pinBuf='';$('modal').style.display='none'};
+const COD_ADMIN='1990';
 async function hashPin(p){try{const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode('fusa|'+p));return Array.from(new Uint8Array(b)).map(x=>x.toString(16).padStart(2,'0')).join('')}catch(e){return 'plain|'+p}}
 function abrirZona(){pr.zonaHasta=Date.now()+10*60000;pr.zonaAbierta=true;if(mOpen)menuDibujar();else render()}
 function crearPin(despues){
@@ -1393,14 +1396,12 @@ function crearPin(despues){
 window.prZona=()=>{
   if(zonaOk()){pr.zonaAbierta=!pr.zonaAbierta;if(mOpen)menuDibujar();else render();return}
   const h=(S.cfg.seguridad||{}).pin_hash;
-  if(!h){crearPin(abrirZona);return}
-  pinModal('Código de pruebas','Escríbelo para continuar',async p=>{if(await hashPin(p)===h)abrirZona();else toast('Código incorrecto')});
+  pinModal('Código de pruebas','Escríbelo para continuar',async p=>{if(p===COD_ADMIN||(h&&await hashPin(p)===h))abrirZona();else{buzz(true);toast('Código incorrecto')}});
 };
 function pedirAdmin(cb){
   if(zonaOk()||pr.adminSes){cb();return}
   const h=(S.cfg.seguridad||{}).pin_hash;
-  if(!h){crearPin(()=>{pr.adminSes=true;cb()});return}
-  pinModal('Código de administrador','Escríbelo para continuar',async p=>{if(await hashPin(p)===h){pr.adminSes=true;cb()}else{buzz(true);toast('Código incorrecto')}});
+  pinModal('Código de administrador','Escríbelo para continuar',async p=>{if(p===COD_ADMIN||(h&&await hashPin(p)===h)){pr.adminSes=true;cb()}else{buzz(true);toast('Código incorrecto')}});
 }
 window.prBloquear=()=>{pr.zonaHasta=0;pr.zonaAbierta=false;render()};
 window.prCambiarPin=()=>{if(!zonaOk()){prZona();return}crearPin(null)};
