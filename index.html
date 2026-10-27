@@ -287,6 +287,8 @@ body.mopen #side{transform:none;box-shadow:4px 0 24px rgba(0,0,0,.2)}body.mopen 
 #pr-root #pr-reg{grid-template-rows:minmax(0,1fr) auto}
 #pr-root #pr-panel:has(.hint){display:none}
 }
+#pr-root .bal{width:100%;background:var(--acbg);border-color:var(--ac);color:var(--acx);font-size:16px}
+#bal-read{font-size:34px;font-weight:800;text-align:center;margin:8px 0}
 </style>
 </head>
 <body>
@@ -533,6 +535,11 @@ function labelHTML(r, mini){
     '<div class="l4">VENCE: ' + (r.vence ? fd(new Date(r.vence), r.dias <= AVISO_DIAS_ROJO) : '—') + '</div><div class="l5"><span>' + esc(r.lote) + '</span><span>' + (MODOS[r.modo] || '') + ' · ' + esc(ini) + '</span></div></div>';
 }
 
+const UW = {lb:453.592, kg:1000, g:1, oz:28.3495};
+function wUni(u){ u = String(u || '').toLowerCase().trim(); if(/^(lb|libra)/.test(u)) return 'lb'; if(/^(kg|kilo)/.test(u)) return 'kg'; if(/^(g|gr|gramo)/.test(u)) return 'g'; if(/^(oz|onza)/.test(u)) return 'oz'; return null; }
+function balVal(f){ const b = API.balanza && API.balanza.leer && API.balanza.leer(), pu = wUni(f.unidad); if(!b || !pu) return null; if(b.peso == null) return {ok:false, pu}; const v = b.peso * UW[b.unidad] / UW[pu]; return {ok:true, pu, v:(pu === 'g' ? Math.round(v) : round2(v)), est:b.estable}; }
+function balBtn(f){ const r = balVal(f); if(!r) return ''; return '<button class="btn bal" id="pr-bal" data-act="bal">' + (r.ok ? 'Usar peso de la balanza: <b>' + fmt(r.v) + ' ' + esc(f.unidad) + '</b>' + (r.est ? '' : ' (se está moviendo)') : 'Balanza conectada: esperando peso') + '</button>'; }
+function panelBal(){ const f = cur(); if(!f) return; const r = balVal(f); if(!r || !r.ok || !(r.v > 0)){ toast('La balanza no tiene lectura'); return; } S.qty = r.v; S.mode = 'quick'; S.etqOv = null; S.guard = null; renderPanel(); popQty(); }
 function renderPanel(){
   const el = $('#pr-panel'); if(!el) return; const f = cur();
   if(!f){ el.innerHTML = '<div class="hint"><div class="big">Elige un producto</div><div class="mu">Toca una tarjeta para empezar</div></div>'; return; }
@@ -550,7 +557,7 @@ function renderPanel(){
     : '<button class="chipv wn" style="border:0;font-family:inherit;text-align:left;cursor:pointer" data-act="ficha" data-pid="' + f.id + '">' + ic('clock', 26) + '<span>Falta la vida útil<br><small>Toca para configurar la ficha (sin etiqueta)</small></span></button>';
   el.innerHTML = '<div class="pcols"><div class="pc1">' +
       '<div class="phead">' + phHTML(f, 'sm') + '<div><div class="nm">' + esc(f.nombre) + '</div><div class="un">' + esc(f.unidad) + ' · 1 batch = ' + fmt(f.batch) + '</div></div></div>' +
-      '<div class="pq" id="pr-pq"><span class="n">' + cant + '</span><span class="u">' + esc(f.unidad) + '</span></div><div class="eq">' + eqt + '</div>' +
+      '<div class="pq" id="pr-pq"><span class="n">' + cant + '</span><span class="u">' + esc(f.unidad) + '</span></div><div class="eq">' + eqt + '</div>' + balBtn(f) +
       '<div class="quick">' + qk.map((q, i) => '<button class="btn" data-act="quick" data-i="' + i + '">' + q.t + '</button>').join('') + '</div>' +
       '<button class="btn kbtog" data-act="kbd">' + ic('kbd', 24) + ' ' + (S.kbd ? 'Ocultar teclado' : 'Teclado numérico') + '</button>' +
       '<div class="kpwrap"><div class="kp">' + keys.map(k => '<button class="btn key" data-act="key" data-k="' + k + '">' + (k === 'back' ? ic('back', 30) : k) + '</button>').join('') + '</div></div></div>' +
@@ -929,6 +936,7 @@ function onClick(e){
     case 'mv': mover(d.pid, d.d); break;
     case 'key': panelKey(d.k); break;
     case 'quick': panelQuick(parseInt(d.i, 10)); break;
+    case 'bal': panelBal(); break;
     case 'kbd': S.kbd = !S.kbd; layout(); renderPanel(); break;
     case 'modo': S.modo = d.v; S.guard = null; renderPanel(); break;
     case 'etq': { const f = cur(); if(f){ const e0 = S.etqOv != null ? S.etqOv : etqOf(f, S.qty); S.etqOv = Math.max(1, Math.min(99, e0 + parseInt(d.d, 10))); renderPanel(); } break; }
@@ -986,7 +994,9 @@ window.PRODREG = {
   productos(estacion){ return PROD_ALL.filter(p => (estacionDe(estacion).secciones.indexOf(p.seccion) >= 0)).map(p => { const f = fichaDe(p.id); return {id:p.id, nombre:f.nombre, unidad:f.unidad, presentacion:f.presentacion, foto:f.foto}; }); },
   setProductos(lista){ setProd(lista); if(S.pid && !PROD_ALL.some(p => p.id === S.pid)) S.pid = null; if(S.ready) refrescar(); },
   mostrar(){ layout(); refrescar(); },
-  hoy(){ return getHoy(); }
+  hoy(){ return getHoy(); },
+  peso(){ const f = cur(), el = $('#pr-bal'); if(f && el) el.outerHTML = balBtn(f); },
+  panel(){ if(S.screen === 'main') renderPanel(); }
 };
 
 })();
@@ -1336,6 +1346,25 @@ function prActualizar(r){
   else if(r.anulado&&!prev){setDoc(doc(db,C.prod,r.id),{anulado:true,anulado_ms:Date.now()},{merge:true})}
   if(r.impresa)updateDoc(doc(db,C.prod,r.id),{impresa:true});
 }
+/* --- Balanza (USB serial, Chrome en computador o Android) --- */
+const balCfg=(()=>{try{return JSON.parse(localStorage.getItem('fusa_bal')||'{}')}catch(e){return{}}})();
+const bal={port:null,reader:null,on:false,peso:null,unidad:'lb',uniDef:balCfg.uni||'lb',estable:true,baud:balCfg.baud||9600,err:''};
+function balGuardarCfg(){try{localStorage.setItem('fusa_bal',JSON.stringify({baud:bal.baud,uni:bal.uniDef}))}catch(e){}}
+function balParse(line){const m=String(line).match(/([-+]?\d+(?:[.,]\d+)?)\s*(kg|lbs?|oz|g)?(?![a-z])/i);if(!m)return false;const n=parseFloat(m[1].replace(',','.'));if(isNaN(n))return false;bal.peso=n;bal.unidad=(m[2]||bal.uniDef).toLowerCase().replace(/s$/,'');bal.estable=!(/\b(US|M)\b|\?/.test(line));return true}
+window.__balParse=balParse;
+function balPush(full){try{full?PRODREG.panel():PRODREG.peso()}catch(e){}const r=$('bal-read');if(r)r.textContent=bal.on?(bal.peso==null?'Esperando peso…':bal.peso+' '+bal.unidad+(bal.estable?'':' (moviéndose)')):'Sin conectar'}
+async function balLeer(){let buf='';try{const dec=new TextDecoderStream();bal.port.readable.pipeTo(dec.writable).catch(()=>{});bal.reader=dec.readable.getReader();for(;;){const {value,done}=await bal.reader.read();if(done)break;buf+=value;const ls=buf.split(/[\r\n]+/);buf=ls.pop();let ch=false;ls.forEach(l=>{if(balParse(l))ch=true});if(buf.length>40){if(balParse(buf))ch=true;buf=''}if(ch)balPush()}}catch(e){bal.err='Se perdió la conexión con la balanza'}bal.on=false;bal.peso=null;balPush(true);if($('modal').style.display==='flex'&&$('bal-read'))balModal()}
+window.balConectar=async()=>{if(!('serial' in navigator)){bal.err='Este navegador no puede conectar la balanza. Usa Chrome en un computador o en Android (en iPad no es posible).';balModal();return}
+  try{bal.port=await navigator.serial.requestPort();await bal.port.open({baudRate:bal.baud});bal.on=true;bal.err='';bal.peso=null;balModal();balPush(true);balLeer()}
+  catch(e){bal.on=false;bal.err=(e&&e.name==='NotFoundError')?'No elegiste ninguna balanza':'No se pudo abrir la balanza: '+((e&&e.message)||e);balModal()}};
+window.balDesconectar=async()=>{try{if(bal.reader)await bal.reader.cancel()}catch(e){}try{if(bal.port)await bal.port.close()}catch(e){}bal.on=false;bal.peso=null;bal.port=null;balPush(true);balModal()};
+window.balCfgSet=(k,v)=>{if(k==='baud')bal.baud=parseInt(v,10)||9600;else bal.uniDef=v;balGuardarCfg()};
+function balModal(){const op=(v,t,cur)=>`<option value="${v}" ${String(cur)===String(v)?'selected':''}>${t}</option>`;
+  $('mbody').innerHTML=`<div style="font-weight:800;font-size:18px;text-align:center">Balanza</div><div class="mu" style="text-align:center">${bal.on?'Conectada por USB':'Sin conectar'}</div><div id="bal-read">${bal.on?(bal.peso==null?'Esperando peso…':bal.peso+' '+bal.unidad):'Sin conectar'}</div>${bal.err?`<div class="mu" style="color:var(--er);margin-bottom:8px">${esc(bal.err)}</div>`:''}
+  <div class="row"><div class="f"><label>Velocidad (baudios)</label><select onchange="balCfgSet('baud',this.value)" ${bal.on?'disabled':''}>${[2400,4800,9600,19200].map(b=>op(b,b,bal.baud)).join('')}</select></div><div class="f"><label>Unidad si la balanza no la envía</label><select onchange="balCfgSet('uni',this.value)">${['lb','kg','g','oz'].map(u=>op(u,u,bal.uniDef)).join('')}</select></div></div>
+  <div class="mu" style="margin-bottom:10px">Funciona con balanzas USB (puerto serial) en Chrome para computador o Android. En Produce aparece el botón "Usar peso de la balanza" al elegir un producto en libras, kilos, gramos u onzas.</div>
+  <div class="row">${bal.on?'<button class="btn d" onclick="balDesconectar()">Desconectar</button>':'<button class="btn g" onclick="balConectar()">Conectar por USB</button>'}<button class="btn" onclick="cerrarM()">Cerrar</button></div>`;
+  $('modal').style.display='flex'}
 const prApi={
   guardarRegistro:prGuardar,actualizarRegistro:prActualizar,
   guardarPrueba:r=>setDoc(doc(db,C.pruebas,r.id),{...prDoc(r),insumos:[],bajas:[]}),
@@ -1343,9 +1372,10 @@ const prApi={
   guardarFicha:f=>setDoc(doc(db,C.fichas,f.id),{...f,seccion:areaNombre((S.cat.find(x=>x.id===f.id)||{}).area_produccion||AREA0),actualizado_ms:Date.now(),actualizado_por:quien||''},{merge:true}),
   guardarOrden:(op,ids)=>setDoc(doc(db,C.orden,areaClave(op)),{ids,actualizado_ms:Date.now()}),
   pedirCodigo:cb=>pedirAdmin(cb),
+  balanza:{leer:()=>bal.on?{peso:bal.peso,unidad:bal.unidad,estable:bal.estable}:null},
   quien:()=>quien,setQuien:v=>{setQuien(v)},equipo:()=>eqList().map(e=>e.nombre).filter(Boolean),
-  menuExtra:()=>[{k:'nuevo',t:'+ Producto nuevo'},{k:'recetas',t:'Recetas, insumos y metas'},{k:'mp',t:'Materias primas'},{k:'equipo',t:'Equipo y teléfonos'},...(faltanSeed()?[{k:'seed',t:'Cargar productos iniciales ('+faltanSeed()+')'}]:[]),{k:'zona',t:'Pruebas y borrado'}],
-  onMenu:k=>{if(k==='seed')cargarSeed();else if(k==='zona')prZonaMenu();else if(k==='recetas')pedirAdmin(()=>prMode('fichas'));else prMode(k)}
+  menuExtra:()=>[{k:'nuevo',t:'+ Producto nuevo'},{k:'recetas',t:'Recetas, insumos y metas'},{k:'mp',t:'Materias primas'},{k:'equipo',t:'Equipo y teléfonos'},{k:'bal',t:'Balanza'},...(faltanSeed()?[{k:'seed',t:'Cargar productos iniciales ('+faltanSeed()+')'}]:[]),{k:'zona',t:'Pruebas y borrado'}],
+  onMenu:k=>{if(k==='bal')balModal();else if(k==='seed')cargarSeed();else if(k==='zona')prZonaMenu();else if(k==='recetas')pedirAdmin(()=>prMode('fichas'));else prMode(k)}
 };
 function prIniciar(){PRODREG.init({productos:prProductos(),codigo:0,bloqueadas:[],api:prApi});prIni=true;PRODREG.setFichas(S.fichas);prSyncOrden();prSyncRegs()}
 
