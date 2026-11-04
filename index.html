@@ -334,8 +334,8 @@ const ETIQUETA = {ancho_mm:60, alto_mm:40};
 /* Áreas de producción: cada área ve solo sus productos. */
 const ESTACIONES = [
   {nombre:'Panadería producción', secciones:['Panadería producción']},
-  {nombre:'Proteínas', secciones:['Proteínas']},
-  {nombre:'Produce', secciones:['Produce']}
+  {nombre:'Repostería', secciones:['Repostería']},
+  {nombre:'Cuarto frío', secciones:['Cuarto frío']}
 ];
 const SECCION_NOMBRE = {};
 const MODOS = {ref:'Refrigerado', con:'Congelado', amb:'Ambiente'};
@@ -806,7 +806,8 @@ function renderFichaEdit(){
   const dm = m => p.vida[m] > 0 ? p.vida[m] + ' días' : 'No aplica';
   return '<div class="subbar"><button class="btn" data-act="ficha-cancel">Cancelar</button><div class="subt">' + esc(p.nombre) + '</div><button class="btn okb" data-act="ficha-save">Guardar</button></div><div class="screen">' +
     '<div class="sec"><h3>Foto</h3><div class="fotorow">' + phHTML(p, 'big') + '<div class="col"><label class="btn pri" for="pr-ficha-foto">' + ic('camera', 24) + ' Tomar o elegir foto</label><input id="pr-ficha-foto" type="file" accept="image/*" style="position:absolute;opacity:0;width:1px;height:1px">' + (foto ? '<button class="btn" data-act="foto-del">Quitar foto</button>' : '') + '</div></div></div>' +
-    '<div class="sec"><h3>Unidad de registro</h3><div class="mu small">Elige libras o kilos para registrar este producto con la balanza.</div><div class="modos">' + [['orig', ((PROD_ALL.filter(x => x.id === p.id)[0] || {}).uni || 'Original')], ['lb', 'Libras (lb)'], ['kg', 'Kilos (kg)']].map(u => '<button class="btn ' + ((u[0] === 'orig' ? !wUni(p.unidad) : wUni(p.unidad) === u[0]) ? 'on' : '') + '" data-act="funi" data-v="' + u[0] + '">' + esc(u[1]) + '</button>').join('') + '</div></div>' +
+    '<div class="sec"><h3>Estación</h3><div class="mu small">En qué estación se registra este producto.</div><div class="modos">' + OPERADORES.map(o => '<button class="btn ' + (o === (p.estNueva || (PROD_ALL.filter(x => x.id === p.id)[0] || {}).seccion) ? 'on' : '') + '" data-act="fest" data-v="' + esc(o) + '">' + esc(o) + '</button>').join('') + '</div></div>' +
+    '<div class="sec"><h3>Unidad de registro</h3><div class="mu small">Elige libras o kilos para registrar este producto con la balanza.</div><div class="modos">' + (function(){ const o = (PROD_ALL.filter(x => x.id === p.id)[0] || {}).uni || 'Original', act = p.unidad === o ? 'orig' : (wUni(p.unidad) || (p.unidad === 'uds' ? 'uds' : 'orig')); return [['orig', o], ['uds', 'Uds'], ['lb', 'Libras (lb)'], ['kg', 'Kilos (kg)']].map(u => '<button class="btn ' + (u[0] === act ? 'on' : '') + '" data-act="funi" data-v="' + u[0] + '">' + esc(u[1]) + '</button>').join(''); })() + '</div></div>' +
     '<div class="sec"><h3>Cantidades (' + esc(p.unidad) + ')</h3>' +
       row('Batch estándar', 'batch', fmt(p.batch), p.unidad) + row('Avisar si pasa de', 'max', p.max > 0 ? fmt(p.max) : '3 batches', p.max > 0 ? p.unidad : '') +
       row('Unidades por paquete (1 etiqueta por paquete)', 'por_etiqueta', p.por_etiqueta > 0 ? fmt(p.por_etiqueta) : 'Sin paquete: 1 etiqueta', p.por_etiqueta > 0 ? p.unidad : '') +
@@ -826,6 +827,7 @@ function onPhoto(file){
 function guardarFicha(){
   const d = S.fd; if(!d) return; const p = d.draft;
   const doc = {id:p.id, nombre:p.nombre, presentacion:p.presentacion, unidad:p.unidad, codigo:p.codigo, decimales:p.decimales ? 1 : 0, batch:p.batch, solo_batch:p.solo_batch ? 1 : 0, por_etiqueta:p.por_etiqueta || 0, max:p.max || 0, modo_defecto:p.modo_defecto, vida:p.vida, foto:p.foto || null};
+  if(p.estNueva && API.cambiarEstacion) try { API.cambiarEstacion(p.id, p.estNueva); } catch(e){ console.error(e); }
   Promise.resolve().then(() => STORE.guardarFicha(doc)).catch(e => { console.error(e); toast('No se pudo guardar la ficha'); });
   S.fichas[p.id] = doc; S.fd = null; S.screen = 'fichas'; render(); toast('Ficha guardada');
 }
@@ -960,7 +962,8 @@ function onClick(e){
     case 'ficha-cancel': S.fd = null; S.screen = 'fichas'; render(); break;
     case 'ficha-save': guardarFicha(); break;
     case 'foto-del': S.fd.draft.foto = null; render(); break;
-    case 'funi': { const dr = S.fd.draft; dr.unidad = d.v === 'orig' ? (PROD_ALL.filter(x => x.id === dr.id)[0] || {}).uni || dr.unidad : d.v; if(wUni(dr.unidad)) dr.decimales = 1; render(); break; }
+    case 'fest': { S.fd.draft.estNueva = d.v; render(); break; }
+    case 'funi': { const dr = S.fd.draft; dr.unidad = d.v === 'orig' ? (PROD_ALL.filter(x => x.id === dr.id)[0] || {}).uni || dr.unidad : d.v; dr.decimales = wUni(dr.unidad) ? 1 : (d.v === 'uds' ? 0 : dr.decimales); render(); break; }
     case 'ftog': { const dr = S.fd.draft; dr[d.f] = dr[d.f] ? 0 : 1; render(); break; }
     case 'fdef': S.fd.draft.modo_defecto = d.v; render(); break;
     case 'fnum': {
@@ -1033,47 +1036,49 @@ const C={cat:'fusa_catalogo',ped:'fusa_pedidos_locales',lc:'fusa_listas_compra',
 const LOCALES={orange:'Orange',west_orange:'West Orange'};
 const CATEGORIAS={cocina:'Cocina',cafeteria:'Cafetería',bebidas:'Bebidas',panaderia:'Panadería',limpieza:'Limpieza'};
 const SUBS={mercado:'Mercado (se compra)',bodega:'Bodega (se despacha)',facility:'Facility (se produce)'};
-const AREAS={panaderia:'Panadería producción',proteinas:'Proteínas',produce:'Produce'};
+const AREAS={panaderia:'Panadería producción',reposteria:'Repostería',cuartofrio:'Cuarto frío'};
+const AREA_ALIAS={proteinas:'cuartofrio',produce:'cuartofrio'};
 const AREA0='panaderia';
+const areaDe=p=>{const a=p&&p.area_produccion;return AREAS[a]?a:(AREA_ALIAS[a]||AREA0)};
 const SEED=[
-  ["proteinas", "Presas de pollo", "Bolsa", "20 unidades"],
-  ["proteinas", "Filete de pechuga", "Unidades", "200 gr x filete"],
-  ["proteinas", "Pechuga de pollo cubos", "Bolsa", "130 gr"],
-  ["proteinas", "Carne de res entera", "Kg", "130 gr"],
-  ["proteinas", "Carne de res cubos", "Bolsa", "2 kg"],
-  ["proteinas", "Filete de res", "Unidades", "130gr x filete"],
-  ["proteinas", "Chuleta de cerdo (JS Cheese)", "Caja", "24 filetes"],
-  ["proteinas", "Filete de lomo de cerdo", "Unidades", "130g x filete"],
-  ["proteinas", "Camarón (Santa Priscila)", "Bolsa", "1 kg"],
-  ["proteinas", "Guatita", "Bolsa", "1kg"],
-  ["proteinas", "Queso molido", "Bolsa", "1 kg"],
-  ["proteinas", "Carne molida", "Bolsa", "4 kg"],
-  ["produce", "Tomate romano", "Bolsa", "2 kg"],
-  ["produce", "Tomate cherry", "Caja", "270 gr"],
-  ["produce", "Pimiento rojo", "Bolsa", "2 kg"],
-  ["produce", "Pimiento verde", "Bolsa", "2 kg"],
-  ["produce", "Ajo en pepa", "Bolsa", "1 kg"],
-  ["produce", "Perejil", "Bolsa", "400 gr"],
-  ["produce", "Cilantro", "Bolsa", "400 gr"],
-  ["produce", "Cúrcuma", "Caja", "528 gr"],
-  ["produce", "Manzana roja", "Bolsa", "12 unidades"],
-  ["produce", "Manzana verde", "Bolsa", "12 unidades"],
-  ["produce", "Melón picado", "Bolsa", "2 kg"],
-  ["produce", "Banana congelada", "Bolsa", "2 kg"],
-  ["produce", "Lechuga", "Bolsa", "6 unidades"],
-  ["produce", "Limón", "Bolsa", "2 kg"],
-  ["produce", "Morocho cocinado", "Bolsa", "500 gr"],
-  ["produce", "Morocho cocinado 1/2 orden", "Bolsa", "250 gr"],
-  ["produce", "Frozen peas (arvejas congeladas)", "Bolsa", "1.13 kg"],
-  ["produce", "Pollo entero", "Unidades", "1.7 kg"],
-  ["produce", "Naranja", "Caja", "88 unidades"],
-  ["produce", "Plátano verde", "Bolsa", "12 unidades"],
-  ["produce", "Harina blanca", "Bolsa", "1.36 kg"],
-  ["produce", "Base trigrillo", "Bolsa", "1 kg"],
-  ["produce", "Tomate de arbol picado", "Bolsa", "1.3 kg"],
-  ["produce", "Bolón", "Unidades", "25 unidades"],
-  ["produce", "Empanada de verde", "Unidades", "20 unidades"],
-  ["produce", "Tortilla de yuca", "Unidades", "20 unidades"],
+  ["cuartofrio", "Presas de pollo", "Bolsa", "20 unidades"],
+  ["cuartofrio", "Filete de pechuga", "Unidades", "200 gr x filete"],
+  ["cuartofrio", "Pechuga de pollo cubos", "Bolsa", "130 gr"],
+  ["cuartofrio", "Carne de res entera", "Kg", "130 gr"],
+  ["cuartofrio", "Carne de res cubos", "Bolsa", "2 kg"],
+  ["cuartofrio", "Filete de res", "Unidades", "130gr x filete"],
+  ["cuartofrio", "Chuleta de cerdo (JS Cheese)", "Caja", "24 filetes"],
+  ["cuartofrio", "Filete de lomo de cerdo", "Unidades", "130g x filete"],
+  ["cuartofrio", "Camarón (Santa Priscila)", "Bolsa", "1 kg"],
+  ["cuartofrio", "Guatita", "Bolsa", "1kg"],
+  ["cuartofrio", "Queso molido", "Bolsa", "1 kg"],
+  ["cuartofrio", "Carne molida", "Bolsa", "4 kg"],
+  ["cuartofrio", "Tomate romano", "Bolsa", "2 kg"],
+  ["cuartofrio", "Tomate cherry", "Caja", "270 gr"],
+  ["cuartofrio", "Pimiento rojo", "Bolsa", "2 kg"],
+  ["cuartofrio", "Pimiento verde", "Bolsa", "2 kg"],
+  ["cuartofrio", "Ajo en pepa", "Bolsa", "1 kg"],
+  ["cuartofrio", "Perejil", "Bolsa", "400 gr"],
+  ["cuartofrio", "Cilantro", "Bolsa", "400 gr"],
+  ["cuartofrio", "Cúrcuma", "Caja", "528 gr"],
+  ["cuartofrio", "Manzana roja", "Bolsa", "12 unidades"],
+  ["cuartofrio", "Manzana verde", "Bolsa", "12 unidades"],
+  ["cuartofrio", "Melón picado", "Bolsa", "2 kg"],
+  ["cuartofrio", "Banana congelada", "Bolsa", "2 kg"],
+  ["cuartofrio", "Lechuga", "Bolsa", "6 unidades"],
+  ["cuartofrio", "Limón", "Bolsa", "2 kg"],
+  ["cuartofrio", "Morocho cocinado", "Bolsa", "500 gr"],
+  ["cuartofrio", "Morocho cocinado 1/2 orden", "Bolsa", "250 gr"],
+  ["cuartofrio", "Frozen peas (arvejas congeladas)", "Bolsa", "1.13 kg"],
+  ["cuartofrio", "Pollo entero", "Unidades", "1.7 kg"],
+  ["cuartofrio", "Naranja", "Caja", "88 unidades"],
+  ["cuartofrio", "Plátano verde", "Bolsa", "12 unidades"],
+  ["cuartofrio", "Harina blanca", "Bolsa", "1.36 kg"],
+  ["cuartofrio", "Base trigrillo", "Bolsa", "1 kg"],
+  ["cuartofrio", "Tomate de arbol picado", "Bolsa", "1.3 kg"],
+  ["cuartofrio", "Bolón", "Unidades", "25 unidades"],
+  ["cuartofrio", "Empanada de verde", "Unidades", "20 unidades"],
+  ["cuartofrio", "Tortilla de yuca", "Unidades", "20 unidades"],
   ["panaderia", "Cachos con queso", "Unidades", ""],
   ["panaderia", "Jamón con queso", "Unidades", ""],
   ["panaderia", "Empanada chola", "Unidades", ""],
@@ -1165,7 +1170,7 @@ function vCatalogo(){
    <div class="f"><label>Subcategoría</label><select id="c_s" onchange="document.getElementById('c_ar').style.display=this.value==='facility'?'':'none'">${Object.entries(SUBS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div>
    <div class="f" id="c_ar" style="display:none"><label>Se produce en</label><select id="c_a">${Object.entries(AREAS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select></div>
    <button class="btn p" onclick="addProd()">Agregar</button></div></div>
-   ${faltanSeed()?`<div class="box" style="border-color:var(--ac)"><h3>Productos iniciales de Facility USA</h3><div class="mu" style="margin-bottom:10px">${SEED.length} productos (Panadería producción, Proteínas y Produce). Se cargan una sola vez; si ya existen no se duplican.</div><button class="btn p" onclick="cargarSeed()">Cargar ${faltanSeed()} productos</button></div>`:''}
+   ${faltanSeed()?`<div class="box" style="border-color:var(--ac)"><h3>Productos iniciales de Facility USA</h3><div class="mu" style="margin-bottom:10px">${SEED.length} productos (Panadería producción y Cuarto frío). Se cargan una sola vez; si ya existen no se duplican.</div><button class="btn p" onclick="cargarSeed()">Cargar ${faltanSeed()} productos</button></div>`:''}
    <div class="box">${S.cat.length?`<table><tr><th>Producto</th><th>Categoría</th><th>Subcategoría</th><th>Unidad</th><th></th></tr>${rows}</table>`:'<div class="empty">El catálogo está vacío. Agrega los productos uno por uno.</div>'}</div>`;
 }
 const seedId=n=>'seed_'+n.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'');
@@ -1174,7 +1179,7 @@ window.cargarSeed=()=>{
   const ex=new Set(S.cat.map(p=>p.id)),b=writeBatch(db);let n=0;
   SEED.forEach(([area,nombre,uni,pres])=>{
     const id=seedId(nombre);if(ex.has(id))return;
-    b.set(doc(db,C.cat,id),{nombre,unidad_medida:pres?uni+' · '+pres:uni,unidad_base:uni,presentacion:pres,categoria:area==='panaderia'?'panaderia':'cocina',subcategoria:'facility',area_produccion:area,activo:true});n++;
+    b.set(doc(db,C.cat,id),{nombre,unidad_medida:pres?uni+' · '+pres:uni,unidad_base:uni,presentacion:pres,categoria:(area==='panaderia'||area==='reposteria')?'panaderia':'cocina',subcategoria:'facility',area_produccion:area,activo:true});n++;
   });
   if(!n)return;b.commit().catch(fbErr);buzz();toast(n+' productos cargados');
 };
@@ -1263,10 +1268,10 @@ window.cerrarCompra=id=>updateDoc(doc(db,C.lc,id),{estado:'cerrada'});
 /* ============ LISTA INTERNA DE PRODUCCIÓN (subcategoría facility) ============ */
 function vInterna(){
   const g=agrupar('facility');
-  const porArea=a=>g.items.filter(i=>(i.area_produccion||AREA0)===a);
+  const porArea=a=>g.items.filter(i=>areaDe(i)===a);
   const nueva=`<div class="box"><h3>Pendiente por producir</h3>${g.items.length?Object.entries(AREAS).map(([k,v])=>porArea(k).length?`<h4 style="margin:10px 0 4px">${v}</h4><table>${porArea(k).map(i=>`<tr><td>${esc(i.producto_nombre)}</td><td>${esc(i.cantidad)} ${esc(i.unidad_medida)}</td></tr>`).join('')}</table>`:'').join('')+`<div class="row" style="margin-top:12px"><button class="btn p" onclick="genInterna()">Generar lista interna (${g.pend.length} pedidos)</button></div>`:'<div class="empty">No hay productos para producir.</div>'}</div>`;
   const listas=S.lp.map(l=>`<div class="box"><div class="row" style="justify-content:space-between;margin:0 0 8px"><div><b>Lista ${fecha(l.fecha_ms)}</b> <span class="badge b-${l.estado==='cerrada'?'procesado':'en_proceso'}">${esc(l.estado)}</span></div>${l.estado!=='cerrada'?`<button class="btn sm g" onclick="cerrarInterna('${l.id}')">Cerrar lista</button>`:''}</div>
-   ${Object.entries(AREAS).map(([k,v])=>{const its=(l.items||[]).map((i,ix)=>({...i,ix})).filter(i=>(i.area_produccion||AREA0)===k);return its.length?`<h4 style="margin:10px 0 4px">${v}</h4><table>${its.map(i=>`<tr><td><input type="checkbox" style="width:26px;height:26px;min-height:0" ${i.hecho?'checked':''} onchange="toggleInterna('${l.id}',${i.ix},this.checked)"></td><td class="${i.hecho?'done':''}">${esc(i.producto_nombre)}</td><td>${esc(i.cantidad)} ${esc(i.unidad_medida)}</td></tr>`).join('')}</table>`:''}).join('')}</div>`).join('');
+   ${Object.entries(AREAS).map(([k,v])=>{const its=(l.items||[]).map((i,ix)=>({...i,ix})).filter(i=>areaDe(i)===k);return its.length?`<h4 style="margin:10px 0 4px">${v}</h4><table>${its.map(i=>`<tr><td><input type="checkbox" style="width:26px;height:26px;min-height:0" ${i.hecho?'checked':''} onchange="toggleInterna('${l.id}',${i.ix},this.checked)"></td><td class="${i.hecho?'done':''}">${esc(i.producto_nombre)}</td><td>${esc(i.cantidad)} ${esc(i.unidad_medida)}</td></tr>`).join('')}</table>`:''}).join('')}</div>`).join('');
   return nueva+listas;
 }
 window.genInterna=()=>{
@@ -1296,7 +1301,7 @@ const maxDe=f=>f.max>0?f.max:(f.batch>1?f.batch*3:Infinity);
 const tieneVida=f=>f.vida.ref>0||f.vida.con>0||f.vida.amb>0;
 const modosDe=f=>['ref','con','amb'].filter(m=>f.vida[m]>0);
 const modoEf=f=>{const ms=modosDe(f);return ms.includes(pr.modo)?pr.modo:(ms[0]||pr.modo)};
-const prodsEst=e=>{const l=S.cat.filter(p=>p.subcategoria==='facility'&&(p.area_produccion||AREA0)===e);const o=(S.orden[e]&&S.orden[e].ids)||[];return o.length?[...l].sort((a,b)=>{const x=o.indexOf(a.id),y=o.indexOf(b.id);return (x<0?1e6:x)-(y<0?1e6:y)}):l};
+const prodsEst=e=>{const l=S.cat.filter(p=>p.subcategoria==='facility'&&areaDe(p)===e);const o=(S.orden[e]&&S.orden[e].ids)||[];return o.length?[...l].sort((a,b)=>{const x=o.indexOf(a.id),y=o.indexOf(b.id);return (x<0?1e6:x)-(y<0?1e6:y)}):l};
 const cantReg=r=>r.cantidad_producida!=null?r.cantidad_producida:(r.cantidad||0);
 const regsHoy=()=>{const h=new Date().toDateString();return [...S.prod,...S.pruebas].filter(r=>r.fecha_ms&&r.producto_id&&new Date(r.fecha_ms).toDateString()===h).sort((a,b)=>b.fecha_ms-a.fecha_ms)};
 
@@ -1327,7 +1332,7 @@ function hhmm(d){return String(d.getHours()).padStart(2,'0')+':'+String(d.getMin
 /* ============ Conexión con el módulo de producción (PRODREG) ============ */
 const areaNombre=k=>AREAS[k]||AREAS[AREA0];
 const areaClave=n=>Object.keys(AREAS).find(k=>AREAS[k]===n)||AREA0;
-function prProductos(){return S.cat.filter(p=>p.subcategoria==='facility').map(p=>({id:p.id,nombre:p.nombre,batch:1,uni:p.unidad_base||p.unidad_medida||'unidades',unidad:p.presentacion||'',seccion:areaNombre(p.area_produccion||AREA0)}))}
+function prProductos(){return S.cat.filter(p=>p.subcategoria==='facility').map(p=>({id:p.id,nombre:p.nombre,batch:1,uni:p.unidad_base||p.unidad_medida||'unidades',unidad:p.presentacion||'',seccion:areaNombre(areaDe(p))}))}
 const mrec=d=>({...d,id:d.id,pid:d.pid||d.producto_id,nombre:d.pid?d.nombre:(d.producto_nombre||d.nombre),unidad:d.pid?d.unidad:(d.unidad_base||d.unidad_medida||''),presentacion:d.presentacion||'',cant:d.cant!=null?d.cant:cantReg(d),cpe:d.cpe!=null?d.cpe:(d.cantidad_por_etiqueta||0),modo:d.modo||d.conservacion_modo||'ref',ts:d.ts||d.fecha_ms,vence:d.vence||0,dias:d.dias!=null?d.dias:(d.dias_vida||0),lote:d.lote||'',etq:d.etq!=null?d.etq:(d.etiquetas||0),op:d.op||d.estacion||'',anulado:!!d.anulado,impresa:!!d.impresa,prueba:!!d.prueba,por:d.por||''});
 function prSyncRegs(){const h=new Date().toDateString();PRODREG.setRegistros([...S.prod,...S.pruebas].filter(r=>(r.fecha_ms||r.ts)&&new Date(r.fecha_ms||r.ts).toDateString()===h).map(mrec))}
 function prSyncOrden(){const o={};Object.keys(S.orden).forEach(k=>{if(AREAS[k])o[AREAS[k]]=(S.orden[k]||{}).ids||[]});PRODREG.setOrden(o)}
@@ -1369,7 +1374,7 @@ window.balCfgSet=(k,v)=>{if(k==='baud')bal.baud=parseInt(v,10)||9600;else bal.un
 function balModal(){const op=(v,t,cur)=>`<option value="${v}" ${String(cur)===String(v)?'selected':''}>${t}</option>`;
   $('mbody').innerHTML=`<div style="font-weight:800;font-size:18px;text-align:center">Balanza</div><div class="mu" style="text-align:center">${bal.on?'Conectada por USB':'Sin conectar'}</div><div id="bal-read">${bal.on?(bal.peso==null?'Esperando peso…':bal.peso+' '+bal.unidad):'Sin conectar'}</div>${bal.err?`<div class="mu" style="color:var(--er);margin-bottom:8px">${esc(bal.err)}</div>`:''}
   <div class="row"><div class="f"><label>Velocidad (baudios)</label><select onchange="balCfgSet('baud',this.value)" ${bal.on?'disabled':''}>${[2400,4800,9600,19200].map(b=>op(b,b,bal.baud)).join('')}</select></div><div class="f"><label>Unidad si la balanza no la envía</label><select onchange="balCfgSet('uni',this.value)">${['lb','kg','g','oz'].map(u=>op(u,u,bal.uniDef)).join('')}</select></div></div>
-  <div class="mu" style="margin-bottom:10px">Funciona con balanzas USB (puerto serial) en Chrome para computador o Android. En Produce aparece el botón "Usar peso de la balanza" al elegir un producto en libras, kilos, gramos u onzas.</div>
+  <div class="mu" style="margin-bottom:10px">Funciona con balanzas USB (puerto serial) en Chrome para computador o Android. En cada producto en libras o kilos aparece el botón "Usar peso de la balanza" al elegir un producto en libras, kilos, gramos u onzas.</div>
   <div class="row">${bal.on?'<button class="btn d" onclick="balDesconectar()">Desconectar</button>':'<button class="btn g" onclick="balConectar()">Conectar por USB</button>'}<button class="btn" onclick="cerrarM()">Cerrar</button></div>`;
   $('modal').style.display='flex'}
 window.diagnostico=async()=>{
@@ -1384,9 +1389,10 @@ const prApi={
   guardarRegistro:prGuardar,actualizarRegistro:prActualizar,
   guardarPrueba:r=>setDoc(doc(db,C.pruebas,r.id),{...prDoc(r),insumos:[],bajas:[]}),
   actualizarPrueba:r=>updateDoc(doc(db,C.pruebas,r.id),{anulado:!!r.anulado,impresa:!!r.impresa}),
-  guardarFicha:f=>setDoc(doc(db,C.fichas,f.id),{...f,seccion:areaNombre((S.cat.find(x=>x.id===f.id)||{}).area_produccion||AREA0),actualizado_ms:Date.now(),actualizado_por:quien||''},{merge:true}),
+  guardarFicha:f=>setDoc(doc(db,C.fichas,f.id),{...f,seccion:areaNombre(areaDe(S.cat.find(x=>x.id===f.id))),actualizado_ms:Date.now(),actualizado_por:quien||''},{merge:true}),
   guardarOrden:(op,ids)=>setDoc(doc(db,C.orden,areaClave(op)),{ids,actualizado_ms:Date.now()}),
   pedirCodigo:cb=>pedirAdmin(cb),
+  cambiarEstacion:(pid,nom)=>{const k=areaClave(nom);updateDoc(doc(db,C.cat,pid),{area_produccion:k,categoria:(k==='panaderia'||k==='reposteria')?'panaderia':'cocina'})},
   balanza:{leer:()=>bal.on?{peso:bal.peso,unidad:bal.unidad,estable:bal.estable}:null},
   quien:()=>quien,setQuien:v=>{setQuien(v)},equipo:()=>eqList().map(e=>e.nombre).filter(Boolean),
   menuExtra:()=>[{k:'nuevo',t:'+ Producto nuevo'},{k:'recetas',t:'Recetas, insumos y metas'},{k:'mp',t:'Materias primas'},{k:'equipo',t:'Equipo y teléfonos'},{k:'bal',t:'Balanza'},{k:'diag',t:'Diagnóstico de conexión'},...(faltanSeed()?[{k:'seed',t:'Cargar productos iniciales ('+faltanSeed()+')'}]:[]),{k:'zona',t:'Pruebas y borrado'}],
@@ -1485,12 +1491,12 @@ window.prReiniciar=()=>{if(!zonaOk()){prZona();return}menuCerrar();confirmar('Em
 function vFichas(){
   const todos=S.cat.filter(p=>p.subcategoria==='facility');
   const lista=todos.filter(p=>!pr.soloFaltan||!tieneVida(ficha(p)));
-  const filas=Object.entries(AREAS).map(([k,v])=>{const ps=lista.filter(p=>(p.area_produccion||AREA0)===k);return ps.length?`<h4 style="margin:12px 0 4px">${v}</h4><table>${ps.map(p=>{const f=ficha(p),ok=tieneVida(f);return `<tr><td><b>${esc(p.nombre)}</b><div class="mu">${esc(p.unidad_medida)}</div></td><td>${ok?`<span class="badge b-procesado">Vida útil lista</span>`:`<span class="badge b-recibido_diferencias">Falta vida útil</span>`}</td><td style="text-align:right"><button class="btn sm" onclick="fdAbrir('${p.id}')">Editar ficha</button></td></tr>`}).join('')}</table>`:''}).join('');
+  const filas=Object.entries(AREAS).map(([k,v])=>{const ps=lista.filter(p=>areaDe(p)===k);return ps.length?`<h4 style="margin:12px 0 4px">${v}</h4><table>${ps.map(p=>{const f=ficha(p),ok=tieneVida(f);return `<tr><td><b>${esc(p.nombre)}</b><div class="mu">${esc(p.unidad_medida)}</div></td><td>${ok?`<span class="badge b-procesado">Vida útil lista</span>`:`<span class="badge b-recibido_diferencias">Falta vida útil</span>`}</td><td style="text-align:right"><button class="btn sm" onclick="fdAbrir('${p.id}')">Editar ficha</button></td></tr>`}).join('')}</table>`:''}).join('');
   return `<div class="row"><button class="btn" onclick="prMode('op')">← Volver</button><label style="display:flex;gap:8px;align-items:center;margin:0"><input type="checkbox" style="width:24px;height:24px;min-height:0" ${pr.soloFaltan?'checked':''} onchange="prSolo(this.checked)"> Mostrar solo los que faltan</label></div><div class="box">${filas||'<div class="empty">No hay productos.</div>'}</div>`;
 }
 window.fdAbrir=id=>{
   const p=S.cat.find(x=>x.id===id);if(!p)return;const f=ficha(p);
-  fd={id,nombre:p.nombre,estacion:p.area_produccion||AREA0,presentacion:f.presentacion,unidad:f.unidad,codigo:f.codigo,decimales:f.decimales==1,batch:f.batch,solo_batch:f.solo_batch==1,por_etiqueta:f.por_etiqueta,max:f.max,meta_diaria:f.meta_diaria||0,modo_defecto:f.modo_defecto,vida:{...f.vida},receta:f.receta.map(r=>({...r})),foto:f.foto||null};
+  fd={id,nombre:p.nombre,estacion:areaDe(p),presentacion:f.presentacion,unidad:f.unidad,codigo:f.codigo,decimales:f.decimales==1,batch:f.batch,solo_batch:f.solo_batch==1,por_etiqueta:f.por_etiqueta,max:f.max,meta_diaria:f.meta_diaria||0,modo_defecto:f.modo_defecto,vida:{...f.vida},receta:f.receta.map(r=>({...r})),foto:f.foto||null};
   pr.mode='ficha';render();
 };
 window.fdSet=(k,v,n)=>{fd[k]=n?(parseFloat(String(v).replace(',','.'))||0):v};
@@ -1532,7 +1538,7 @@ window.fdGuardar=()=>{
   const data={producto_id:fd.id,nombre:fd.nombre,presentacion:fd.presentacion,unidad:fd.unidad,codigo:(asciiZ(fd.codigo).replace(/[^A-Za-z0-9]/g,'').toUpperCase().slice(0,3))||'PRD',decimales:fd.decimales?1:0,batch:fd.batch,solo_batch:fd.solo_batch?1:0,por_etiqueta:fd.por_etiqueta||0,max:fd.max||0,meta_diaria:fd.meta_diaria||0,modo_defecto:fd.modo_defecto,vida:fd.vida,receta:fd.receta.filter(r=>r.cantidad>0),foto:fd.foto||null,seccion:fd.estacion,actualizado_ms:Date.now(),actualizado_por:quien||''};
   setDoc(doc(db,C.fichas,fd.id),data,{merge:true});
   const p=S.cat.find(x=>x.id===fd.id);
-  if(p&&(p.area_produccion||AREA0)!==fd.estacion)updateDoc(doc(db,C.cat,fd.id),{area_produccion:fd.estacion,categoria:fd.estacion==='panaderia'?'panaderia':'cocina'});
+  if(p&&areaDe(p)!==fd.estacion)updateDoc(doc(db,C.cat,fd.id),{area_produccion:fd.estacion,categoria:(fd.estacion==='panaderia'||fd.estacion==='reposteria')?'panaderia':'cocina'});
   if(p&&(p.presentacion||'')!==fd.presentacion)updateDoc(doc(db,C.cat,fd.id),{presentacion:fd.presentacion});
   buzz();toast('Ficha guardada');pr.mode='fichas';render();
 };
