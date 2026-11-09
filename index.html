@@ -806,6 +806,7 @@ function renderFichaEdit(){
   const dm = m => p.vida[m] > 0 ? p.vida[m] + ' días' : 'No aplica';
   return '<div class="subbar"><button class="btn" data-act="ficha-cancel">Cancelar</button><div class="subt">' + esc(p.nombre) + '</div><button class="btn okb" data-act="ficha-save">Guardar</button></div><div class="screen">' +
     '<div class="sec"><h3>Foto</h3><div class="fotorow">' + phHTML(p, 'big') + '<div class="col"><label class="btn pri" for="pr-ficha-foto">' + ic('camera', 24) + ' Tomar o elegir foto</label><input id="pr-ficha-foto" type="file" accept="image/*" style="position:absolute;opacity:0;width:1px;height:1px">' + (foto ? '<button class="btn" data-act="foto-del">Quitar foto</button>' : '') + '</div></div></div>' +
+    '<div class="sec"><h3>Nombre</h3><input id="pr-fnombre" class="tin" type="text" value="' + esc(p.nombre) + '" autocomplete="off" style="width:100%;min-height:48px;border:2px solid var(--bd);border-radius:12px;padding:0 14px;font:inherit;font-size:17px;background:#fff"></div>' +
     '<div class="sec"><h3>Estación</h3><div class="mu small">En qué estación se registra este producto.</div><div class="modos">' + OPERADORES.map(o => '<button class="btn ' + (o === (p.estNueva || (PROD_ALL.filter(x => x.id === p.id)[0] || {}).seccion) ? 'on' : '') + '" data-act="fest" data-v="' + esc(o) + '">' + esc(o) + '</button>').join('') + '</div></div>' +
     '<div class="sec"><h3>Unidad de registro</h3><div class="mu small">Elige libras o kilos para registrar este producto con la balanza.</div><div class="modos">' + (function(){ const o = (PROD_ALL.filter(x => x.id === p.id)[0] || {}).uni || 'Original', act = p.unidad === o ? 'orig' : (wUni(p.unidad) || (p.unidad === 'uds' ? 'uds' : 'orig')); return [['orig', o], ['uds', 'Uds'], ['lb', 'Libras (lb)'], ['kg', 'Kilos (kg)']].map(u => '<button class="btn ' + (u[0] === act ? 'on' : '') + '" data-act="funi" data-v="' + u[0] + '">' + esc(u[1]) + '</button>').join(''); })() + '</div></div>' +
     '<div class="sec"><h3>Cantidades (' + esc(p.unidad) + ')</h3>' +
@@ -814,7 +815,8 @@ function renderFichaEdit(){
       '<button class="btn sw ' + (p.solo_batch ? 'on' : '') + '" data-act="ftog" data-f="solo_batch"><span>Solo se produce por batch</span><b>' + (p.solo_batch ? 'Sí' : 'No') + '</b></button>' +
       '<button class="btn sw ' + (p.decimales ? 'on' : '') + '" data-act="ftog" data-f="decimales"><span>Permite decimales</span><b>' + (p.decimales ? 'Sí' : 'No') + '</b></button></div>' +
     '<div class="sec"><h3>Vida útil</h3>' + row('Refrigerado', 'vida.ref', dm('ref'), '') + row('Congelado', 'vida.con', dm('con'), '') + row('Ambiente', 'vida.amb', dm('amb'), '') +
-      '<div class="mu small">Conservación que aparece primero:</div><div class="modos">' + ['ref', 'con', 'amb'].filter(m => p.vida[m] > 0).map(m => '<button class="btn ' + (p.modo_defecto === m ? 'on' : '') + '" data-act="fdef" data-v="' + m + '">' + MODOS[m] + '</button>').join('') + '</div></div></div>';
+      '<div class="mu small">Conservación que aparece primero:</div><div class="modos">' + ['ref', 'con', 'amb'].filter(m => p.vida[m] > 0).map(m => '<button class="btn ' + (p.modo_defecto === m ? 'on' : '') + '" data-act="fdef" data-v="' + m + '">' + MODOS[m] + '</button>').join('') + '</div></div>' +
+    '<div class="sec"><button class="btn ' + (d.confDel ? 'er' : '') + '" data-act="fdel" style="width:100%;color:var(--er);border-color:var(--er)">' + (d.confDel ? 'Toca otra vez para eliminar «' + esc(p.nombre) + '»' : 'Eliminar producto') + '</button><div class="mu small" style="margin-top:6px">Los registros de producción ya hechos se conservan.</div></div></div>';
 }
 const getField = (o, f) => f.indexOf('.') >= 0 ? o[f.split('.')[0]][f.split('.')[1]] : o[f];
 const setField = (o, f, v) => { if(f.indexOf('.') >= 0) o[f.split('.')[0]][f.split('.')[1]] = v; else o[f] = v; };
@@ -826,6 +828,7 @@ function onPhoto(file){
 }
 function guardarFicha(){
   const d = S.fd; if(!d) return; const p = d.draft;
+  p.nombre = (p.nombre || '').trim() || (PROD_ALL.filter(x => x.id === p.id)[0] || {}).nombre || p.id;
   const doc = {id:p.id, nombre:p.nombre, presentacion:p.presentacion, unidad:p.unidad, codigo:p.codigo, decimales:p.decimales ? 1 : 0, batch:p.batch, solo_batch:p.solo_batch ? 1 : 0, por_etiqueta:p.por_etiqueta || 0, max:p.max || 0, modo_defecto:p.modo_defecto, vida:p.vida, foto:p.foto || null};
   if(p.estNueva && API.cambiarEstacion) try { API.cambiarEstacion(p.id, p.estNueva); } catch(e){ console.error(e); }
   Promise.resolve().then(() => STORE.guardarFicha(doc)).catch(e => { console.error(e); toast('No se pudo guardar la ficha'); });
@@ -962,6 +965,7 @@ function onClick(e){
     case 'ficha-cancel': S.fd = null; S.screen = 'fichas'; render(); break;
     case 'ficha-save': guardarFicha(); break;
     case 'foto-del': S.fd.draft.foto = null; render(); break;
+    case 'fdel': { if(!S.fd.confDel){ S.fd.confDel = true; render(); setTimeout(() => { if(S.fd){ S.fd.confDel = false; if(S.screen === 'ficha') render(); } }, 4000); break; } const id = S.fd.draft.id, nm = S.fd.draft.nombre; try { API.eliminarProducto && API.eliminarProducto(id); } catch(e){ console.error(e); } delete S.fichas[id]; S.fd = null; S.sel = null; S.pid = null; S.screen = 'fichas'; render(); toast('Producto eliminado: ' + nm); break; }
     case 'fest': { S.fd.draft.estNueva = d.v; render(); break; }
     case 'funi': { const dr = S.fd.draft; dr.unidad = d.v === 'orig' ? (PROD_ALL.filter(x => x.id === dr.id)[0] || {}).uni || dr.unidad : d.v; dr.decimales = wUni(dr.unidad) ? 1 : (d.v === 'uds' ? 0 : dr.decimales); render(); break; }
     case 'ftog': { const dr = S.fd.draft; dr[d.f] = dr[d.f] ? 0 : 1; render(); break; }
@@ -985,6 +989,7 @@ function onClick(e){
 
 /* ═══ 5. ARRANQUE: tu app llama a PRODREG.init() al entrar ═══ */
 document.addEventListener('click', onClick, false);
+document.addEventListener('input', e => { if(e.target && e.target.id === 'pr-fnombre' && S.fd) S.fd.draft.nombre = e.target.value; });
 document.addEventListener('change', e => { if(e.target && e.target.id === 'pr-ficha-foto' && e.target.files && e.target.files[0] && S.fd) onPhoto(e.target.files[0]); });
 window.addEventListener('resize', layout);
 if(window.ResizeObserver) new ResizeObserver(() => layout()).observe(R());
@@ -1389,7 +1394,8 @@ const prApi={
   guardarRegistro:prGuardar,actualizarRegistro:prActualizar,
   guardarPrueba:r=>setDoc(doc(db,C.pruebas,r.id),{...prDoc(r),insumos:[],bajas:[]}),
   actualizarPrueba:r=>updateDoc(doc(db,C.pruebas,r.id),{anulado:!!r.anulado,impresa:!!r.impresa}),
-  guardarFicha:f=>setDoc(doc(db,C.fichas,f.id),{...f,seccion:areaNombre(areaDe(S.cat.find(x=>x.id===f.id))),actualizado_ms:Date.now(),actualizado_por:quien||''},{merge:true}),
+  guardarFicha:f=>{const c=S.cat.find(x=>x.id===f.id);if(c&&f.nombre&&c.nombre!==f.nombre)updateDoc(doc(db,C.cat,f.id),{nombre:f.nombre});return setDoc(doc(db,C.fichas,f.id),{...f,seccion:areaNombre(areaDe(S.cat.find(x=>x.id===f.id))),actualizado_ms:Date.now(),actualizado_por:quien||''},{merge:true});},
+  eliminarProducto:id=>{deleteDoc(doc(db,C.cat,id));deleteDoc(doc(db,C.fichas,id))},
   guardarOrden:(op,ids)=>setDoc(doc(db,C.orden,areaClave(op)),{ids,actualizado_ms:Date.now()}),
   pedirCodigo:cb=>pedirAdmin(cb),
   cambiarEstacion:(pid,nom)=>{const k=areaClave(nom);updateDoc(doc(db,C.cat,pid),{area_produccion:k,categoria:(k==='panaderia'||k==='reposteria')?'panaderia':'cocina'})},
